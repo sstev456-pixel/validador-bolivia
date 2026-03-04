@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador Serie B - Bolivia</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; text-align: center; padding: 20px; }
+        .contenedor { background: #1e293b; padding: 25px; border-radius: 20px; max-width: 400px; margin: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        video { width: 100%; border-radius: 15px; background: #000; margin-bottom: 15px; border: 2px solid #334155; }
+        .boton { background: #38bdf8; color: #0f172a; padding: 15px; border: none; border-radius: 12px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.3s; }
+        .boton:active { transform: scale(0.95); }
+        .boton-gris { background: #475569; color: white; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: none; background: #334155; color: white; text-align: center; box-sizing: border-box; }
+        #resultado { margin-top: 20px; padding: 20px; border-radius: 12px; display: none; font-size: 22px; font-weight: bold; }
+        .invalido { background: #ef4444; border: 2px solid #7f1d1d; }
+        .valido { background: #22c55e; border: 2px solid #14532d; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor">
+        <h2 style="color: #38bdf8; margin-bottom: 5px;">Validador Serie B</h2>
+        <p style="font-size: 13px; opacity: 0.7; margin-bottom: 20px;">Control de Billetes Siniestrados - Bolivia</p>
+
+        <div id="seccion-cam">
+            <video id="video" autoplay playsinline></video>
+            <button class="boton" onclick="escanear()">📷 ESCANEAR AHORA</button>
+            <button class="boton boton-gris" onclick="cambiarModo('man')">Cambiar a Manual</button>
+        </div>
+
+        <div id="seccion-man" style="display:none;">
+            <input type="number" id="input-num" placeholder="Escribe el número de serie">
+            <button class="boton" onclick="validar(document.getElementById('input-num').value)">VERIFICAR SERIE</button>
+            <button class="boton boton-gris" onclick="cambiarModo('cam')">Volver a Cámara</button>
+        </div>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const res = document.getElementById('resultado');
+
+        // Activar cámara trasera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => console.log("Cámara lista (solo funciona en links HTTPS)"));
+
+        function cambiarModo(modo) {
+            document.getElementById('seccion-cam').style.display = modo === 'cam' ? 'block' : 'none';
+            document.getElementById('seccion-man').style.display = modo === 'man' ? 'block' : 'none';
+            res.style.display = "none";
+        }
+
+        async function escanear() {
+            res.style.display = "block";
+            res.innerHTML = "⌛ Leyendo...";
+            res.className = "";
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            const result = await Tesseract.recognize(canvas.toDataURL(), 'eng');
+            const num = result.data.text.replace(/\D/g, "").substring(0, 9);
+            
+            if (num.length > 5) { validar(num); } 
+            else { res.innerHTML = "❌ No detectado. Reintenta."; }
+        }
+
+        function validar(n) {
+            const num = parseInt(n);
+            let esMalo = false;
+
+            // RANGOS DEL ACCIDENTE 2026 (Actualizados)
+            if ((num >= 67250001 && num <= 92250000) || 
+                (num >= 87280145 && num <= 120950000) || 
+                (num >= 77100001 && num <= 109850000)) {
+                esMalo = true;
+            }
+
+            res.style.display = "block";
+            if (esMalo) {
+                res.innerHTML = "🛑 INVÁLIDO<br><span style='font-size:12px'>Reportado: " + num + "</span>";
+                res.className = "invalido";
+            } else {
+                res.innerHTML = "✅ VÁLIDO<br><span style='font-size:12px'>Serie: " + num + "</span>";
+                res.className = "valido";
+            }
+        }
+    </script>
+</body>
+</html>
